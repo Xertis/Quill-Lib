@@ -1,0 +1,10 @@
+{
+  "blocks": [
+    "wood",
+    "obstacle"
+  ],
+  "items": [],
+  "entities": [
+    "phys_block"
+  ]
+}

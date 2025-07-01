@@ -1,0 +1,7 @@
+{
+    "components": [
+        "spatium:phys_block"
+    ],
+    "skeleton-name": "spatium:phys_block",
+    "hitbox": [0.98, 0.98, 0.98]
+}

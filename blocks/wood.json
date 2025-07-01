@@ -1,0 +1,13 @@
+{
+    "material": "base:wood",
+    "texture-faces": [
+        "wood1",
+        "wood2",
+        "wood3",
+        "wood4",
+        "wood5",
+        "wood6"
+    ],
+    "rotation": "pane",
+    "base:durability": 6.0
+}
