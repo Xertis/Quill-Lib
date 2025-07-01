@@ -1,6 +1,8 @@
 require "constants"
 require "std/min"
 
+local animation_player = require "animations/animation_player"
+local animation_storage = require "animations/animation_storage"
 local api = require "api"
 local synced = nil
 
@@ -13,22 +15,16 @@ function on_world_open()
             local x1,y1,z1, x2,y2,z2 = unpack(args)
 
             synced = api.to_entity({x1, y1, z1}, {x2, y2, z2})
-            synced:set_config({is_obstacle = true})
+            --synced:set_config({is_obstacle = true})
             synced:set_pos({player.get_pos(0)})
-            synced:remove_invisibles()
-            synced:put_entity(player.get_entity(0))
+
+            animation_storage.load_animation(file.read("quill:animations/root.json"))
+
+            animation_player.play(animation_storage.get_animation("root"), synced)
         end
     )
 end
 
-local tick = 0
 function on_world_tick()
-    if not synced then
-        return
-    end
-
-    tick = tick + 1
-
-    --synced:set_rot(mat4.rotate({0, 1, 0}, math.round(math.normalize(tick, 360)*360)))
-    synced:move({0.1, 0, 0})
+    animation_player.tick()
 end

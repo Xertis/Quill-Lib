@@ -1,5 +1,5 @@
-local PhysicsBuild = {}
-PhysicsBuild.__index = PhysicsBuild
+local Mesh = {}
+Mesh.__index = Mesh
 
 local function __count_neighbors(x1, y1, z1, blocks)
     local count = 0
@@ -32,8 +32,8 @@ local function __count_neighbors(x1, y1, z1, blocks)
     return count
 end
 
-function PhysicsBuild.new(blocks, origin, size, interpolated, obstacle)
-    local self = setmetatable({}, PhysicsBuild)
+function Mesh.new(blocks, origin, size, interpolated, obstacle)
+    local self = setmetatable({}, Mesh)
     self.blocks = {}
     self.origin = origin
     self.size = size
@@ -49,16 +49,16 @@ function PhysicsBuild.new(blocks, origin, size, interpolated, obstacle)
 end
 
 
-function PhysicsBuild:put_entity(uid)
+function Mesh:put_entity(uid)
     self.entities[uid] = entities.get(uid)
 end
 
-function PhysicsBuild:remove_entity(uid)
+function Mesh:remove_entity(uid)
     self.entities[uid] = nil
 end
 
-function PhysicsBuild:__obstacle_update()
-    local obstacle_id = block.index("spatium:obstacle")
+function Mesh:__obstacle_update()
+    local obstacle_id = block.index("quill:obstacle")
 
     local new_positions = {}
     for _, block_entity in ipairs(self.blocks) do
@@ -93,17 +93,17 @@ function PhysicsBuild:__obstacle_update()
     end
 end
 
-function PhysicsBuild:__get_relative_pos(entity, pos)
+function Mesh:__get_relative_pos(entity, pos)
     pos = pos or self.origin
     return vec3.sub(pos, entity.transform:get_pos())
 end
 
-function PhysicsBuild:set_config(config)
+function Mesh:set_config(config)
     self.is_obstacle = config.is_obstacle
     self.is_interpolated = config.is_interpolated
 end
 
-function PhysicsBuild:put_block(pos, id, rot)
+function Mesh:put_block(pos, id, rot)
     if id == 0 or id == -1 then
         return
     end
@@ -111,8 +111,8 @@ function PhysicsBuild:put_block(pos, id, rot)
     local origin = self.origin
     local new_pos = vec3.sub(pos, origin)
 
-    local entity = entities.spawn("spatium:phys_block", vec3.add(pos, 0.5),
-            {spatium__phys_block={block=block.name(id)}})
+    local entity = entities.spawn("quill:phys_block", vec3.add(pos, 0.5),
+            {quill__phys_block={block=block.name(id)}})
 
     if rot then
         if ROTATIONS[rot.profile][rot.rot] then
@@ -130,7 +130,7 @@ function PhysicsBuild:put_block(pos, id, rot)
     })
 end
 
-function PhysicsBuild:set_pos(pos)
+function Mesh:set_pos(pos)
     local old_origin = self.origin
     self.origin = pos
     for _, block in ipairs(self.blocks) do
@@ -152,7 +152,7 @@ function PhysicsBuild:set_pos(pos)
     self:__obstacle_update()
 end
 
-function PhysicsBuild:move(move)
+function Mesh:move(move)
     local pos = vec3.add(self.origin, move)
     self:set_pos(pos)
 
@@ -163,7 +163,7 @@ function PhysicsBuild:move(move)
     self:__obstacle_update()
 end
 
-function PhysicsBuild:set_rot(rotation_matrix)
+function Mesh:set_rot(rotation_matrix)
     local translate_to_origin = mat4.translate(vec3.mul(self.origin, -1))
     local translate_back = mat4.translate(self.origin)
     local global_rot_matrix = mat4.mul(translate_back, mat4.mul(rotation_matrix, translate_to_origin))
@@ -195,7 +195,7 @@ function PhysicsBuild:set_rot(rotation_matrix)
     self:__obstacle_update()
 end
 
-function PhysicsBuild:remove_invisibles()
+function Mesh:remove_invisibles()
     local blocks_copy = table.copy(self.blocks)
     for id=#self.blocks, 1, -1 do
         local block_entity = self.blocks[id]
@@ -209,4 +209,4 @@ function PhysicsBuild:remove_invisibles()
     end
 end
 
-return PhysicsBuild
+return Mesh
