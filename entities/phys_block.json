@@ -3,5 +3,8 @@
         "quill:phys_block"
     ],
     "skeleton-name": "quill:phys_block",
-    "hitbox": [0.98, 0.98, 0.98]
+    "hitbox": [0.98, 0.98, 0.98],
+    "sensors": [
+        ["aabb", -0.51, -0.51, -0.51, 0.51, 0.51, 0.51]
+    ]
 }

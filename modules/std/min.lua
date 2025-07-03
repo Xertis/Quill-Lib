@@ -58,3 +58,11 @@ end
 function math.delta(a, cur, b)
     return (cur - a) / (b - a)
 end
+
+function vec3.map(vec, func)
+    return {
+        func(vec[1]),
+        func(vec[2]),
+        func(vec[3])
+    }
+end
