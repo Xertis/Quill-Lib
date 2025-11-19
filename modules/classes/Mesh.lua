@@ -32,13 +32,15 @@ local function __count_neighbors(x1, y1, z1, blocks)
     return count
 end
 
-function Mesh.new(blocks, origin, size, interpolated, obstacle)
+function Mesh.new(blocks, origin, size, interpolated)
     local self = setmetatable({}, Mesh)
     self.blocks = {}
+    self.invisible_blocks = {}
+    self.struct_blocks = {}
     self.origin = origin
     self.size = size
+    self.rotation = {}
     self.is_interpolated = interpolated or false
-    self.is_obstacle = obstacle or false
     self.entities = {}
 
     for _, block in ipairs(blocks or {}) do
@@ -48,6 +50,13 @@ function Mesh.new(blocks, origin, size, interpolated, obstacle)
     return self
 end
 
+function Mesh:change_origin(pos)
+    self.origin = pos
+
+    for _, block in ipairs(self.blocks) do
+        block.pos = vec3.sub(block.pos, pos)
+    end
+end
 
 function Mesh:put_entity(uid)
     self.entities[uid] = entities.get(uid)
@@ -55,42 +64,6 @@ end
 
 function Mesh:remove_entity(uid)
     self.entities[uid] = nil
-end
-
-function Mesh:__obstacle_update()
-    local obstacle_id = block.index("quill:obstacle")
-
-    local new_positions = {}
-    for _, block_entity in ipairs(self.blocks) do
-        local block_pos = block_entity.entity.transform:get_pos()
-        local obstacle_pos = {
-            math.floor(block_pos[1]),
-            math.floor(block_pos[2]),
-            math.floor(block_pos[3])
-        }
-        new_positions[obstacle_pos[1]..","..obstacle_pos[2]..","..obstacle_pos[3]] = true
-    end
-
-    for _, block_entity in ipairs(self.blocks) do
-        local old_pos = block_entity.obstacle.old_pos
-        if old_pos then
-            local old_pos_key = old_pos[1]..","..old_pos[2]..","..old_pos[3]
-            if not new_positions[old_pos_key] then
-                block.set(old_pos[1], old_pos[2], old_pos[3], 0)
-            end
-        end
-    end
-
-    for _, block_entity in ipairs(self.blocks) do
-        local block_pos = block_entity.entity.transform:get_pos()
-        local obstacle_pos = {
-            math.floor(block_pos[1] + 0.5),
-            math.floor(block_pos[2] + 0.5),
-            math.floor(block_pos[3] + 0.5)
-        }
-        block.set(obstacle_pos[1], obstacle_pos[2], obstacle_pos[3], obstacle_id)
-        block_entity.obstacle.old_pos = obstacle_pos
-    end
 end
 
 function Mesh:__get_relative_pos(entity, pos)
@@ -104,15 +77,21 @@ function Mesh:set_config(config)
 end
 
 function Mesh:put_block(pos, id, rot)
-    if id == 0 or id == -1 then
+    if id == -1 then
+        return
+    end
+
+    table.insert(self.struct_blocks, {id = id})
+
+    if id == 0 then
         return
     end
 
     local origin = self.origin
     local new_pos = vec3.sub(pos, origin)
 
-    local entity = entities.spawn("quill:phys_block", vec3.add(pos, 0.5),
-            {quill__phys_block={block=block.name(id)}})
+    local entity = entities.spawn("meshup:phys_block", vec3.add(pos, 0.5),
+            {meshup__phys_block={block=block.name(id)}})
 
     if rot then
         if ROTATIONS[rot.profile][rot.rot] then
@@ -144,26 +123,17 @@ function Mesh:set_pos(pos)
 
         tsf:set_pos(vec3.add(self.origin, self:__get_relative_pos(entity, old_origin)))
     end
-
-    if not self.is_obstacle then
-        return
-    end
-
-    self:__obstacle_update()
 end
 
 function Mesh:move(move)
     local pos = vec3.add(self.origin, move)
     self:set_pos(pos)
-
-    if not self.is_obstacle then
-        return
-    end
-
-    self:__obstacle_update()
 end
 
-function Mesh:set_rot(rotation_matrix)
+function Mesh:set_rot(rotation_vector)
+    self.rotation = rotation_vector
+    local rotation_matrix = mat4.vec_to_mat(rotation_vector)
+
     local translate_to_origin = mat4.translate(vec3.mul(self.origin, -1))
     local translate_back = mat4.translate(self.origin)
     local global_rot_matrix = mat4.mul(translate_back, mat4.mul(rotation_matrix, translate_to_origin))
@@ -187,12 +157,6 @@ function Mesh:set_rot(rotation_matrix)
         tsf:set_pos(vec3.add(self.origin, rotated_pos))
         tsf:set_rot(new_rot)
     end
-
-    if not self.is_obstacle then
-        return
-    end
-
-    self:__obstacle_update()
 end
 
 function Mesh:remove_invisibles()

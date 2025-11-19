@@ -107,12 +107,12 @@ function module.tick()
         local cur_rot
         if last_rot and next_rot then
             local interpolation_rot_coef = math.delta(last_time_rot, position, next_time_rot)
-            cur_rot = interpolation.lerp(last_rot.vector, next_rot.vector, interpolation_rot_coef)
+            cur_rot = interpolation.lerp(last_rot, next_rot, interpolation_rot_coef)
         elseif last_rot then
-            cur_rot = last_rot.vector
+            cur_rot = last_rot
         elseif next_rot then
             local interpolation_rot_coef = math.delta(0, position, next_time_rot)
-            cur_rot = interpolation.lerp({0, 0, 0}, next_rot.vector, interpolation_rot_coef)
+            cur_rot = interpolation.lerp({0, 0, 0}, next_rot, interpolation_rot_coef)
         else
             cur_rot = {0, 0, 0}
         end
@@ -127,18 +127,18 @@ function module.tick()
         local cur_pos
         if last_pos and next_pos then
             local interpolation_pos_coef = math.delta(last_time_pos, position, next_time_pos)
-            cur_pos = interpolation.lerp(last_pos.vector, next_pos.vector, interpolation_pos_coef)
+            cur_pos = interpolation.lerp(last_pos, next_pos, interpolation_pos_coef)
         elseif last_pos then
-            cur_pos = last_pos.vector
+            cur_pos = last_pos
         elseif next_pos then
             local interpolation_pos_coef = math.delta(0, position, next_time_pos)
-            cur_pos = interpolation.lerp({0, 0, 0}, next_pos.vector, interpolation_pos_coef)
+            cur_pos = interpolation.lerp({0, 0, 0}, next_pos, interpolation_pos_coef)
         else
             cur_pos = {0, 0, 0}
         end
 
         mesh:set_pos(vec3.sub(origin, cur_pos))
-        mesh:set_rot(vec_to_mat4(cur_rot))
+        mesh:set_rot(cur_rot)
         ::continue::
     end
 end

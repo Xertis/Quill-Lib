@@ -2,19 +2,13 @@
 	"format_version": "1.8.0",
 	"animations": {
 		"root": {
-			"animation_length": 3,
+			"animation_length": 8.25,
 			"bones": {
 				"bone": {
-					"position": {
-						"0.0": {
-							"vector": [0, 0, 0]
-						},
-						"1.5": {
-							"vector": [0, 0, 12]
-						},
-						"3.0": {
-							"vector": [0, 0, 0]
-						}
+					"rotation": {
+						"0.0": [0, 0, 0],
+						"5.7917": [-142.5, -65.20833, -180],
+						"8.0": [0, -145, 0]
 					}
 				}
 			}

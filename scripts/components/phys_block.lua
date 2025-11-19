@@ -16,7 +16,7 @@ else
     SAVED_DATA.texture_order = texture_order
 end
 
-do -- setup visuals
+do
     local id = block.index(blockid)
     local textures = block.get_textures(id)
 
@@ -27,6 +27,10 @@ do -- setup visuals
 end
 
 local players_near = {}
+
+function on_save()
+    entity:despawn()
+end
 
 function on_sensor_enter(index, oid)
     local other_entity = entities.get(oid)

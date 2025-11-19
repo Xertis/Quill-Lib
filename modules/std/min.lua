@@ -66,3 +66,27 @@ function vec3.map(vec, func)
         func(vec[3])
     }
 end
+
+local function mat4_mul(matrices)
+    local result = mat4.idt()
+
+    for _, matrix in ipairs(matrices) do
+        result = mat4.mul(result, matrix)
+    end
+
+    return result
+end
+
+function mat4.vec_to_mat(vector)
+    local matrices = {}
+    for pos, axis in ipairs(vector) do
+        local vec = {0, 0, 0}
+
+        if axis ~= 0 then
+            vec[pos] = 1
+            table.insert(matrices, mat4.rotate(vec, axis))
+        end
+    end
+
+    return mat4_mul(matrices)
+end

@@ -1,7 +1,6 @@
 {
   "blocks": [
-    "wood",
-    "obstacle"
+    "wood"
   ],
   "items": [],
   "entities": [
