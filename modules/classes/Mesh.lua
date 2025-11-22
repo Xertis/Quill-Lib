@@ -1,3 +1,13 @@
+local mp = require "not_utils:main".multiplayer.api
+
+local animation_player = require "animations/animation_player"
+local animation_storage = require "animations/animation_storage"
+
+local bit_buffer = require "not_utils:main".BitBuffer
+
+local api = mp.server or mp.client
+local bson = api.bson
+
 local Mesh = {}
 Mesh.__index = Mesh
 
@@ -48,6 +58,112 @@ function Mesh.new(blocks, origin, size, interpolated)
     end
 
     return self
+end
+
+function Mesh.frombytes(bytes)
+    local data = bson.deserialize(
+        compression.decode(bytes)
+    )
+
+    local mesh = Mesh.new(data.blocks, data.origin, data.size, true)
+    mesh:set_rot(data.rotation)
+    return mesh
+end
+
+function Mesh:__get_blocks_data()
+    local data = {}
+    for _, block in ipairs(self.blocks) do
+        table.insert(data, {id = block.id, pos = block.pos})
+    end
+    return data
+end
+
+function Mesh:serialize()
+    local blocks = self:__get_blocks_data()
+    local rotation = self.rotation
+    local data = {
+        blocks = blocks,
+        rotation = rotation,
+        origin = self.origin,
+        size = self.size
+    }
+
+    local non_compressed_data = bson.serialize(data)
+    local compressed = compression.encode(non_compressed_data)
+
+    return compressed
+end
+
+function Mesh:serialize_rotation()
+    local buffer = bit_buffer:new()
+
+    buffer:put_float32(self.rotation[1])
+    buffer:put_float32(self.rotation[2])
+    buffer:put_float32(self.rotation[3])
+
+    return buffer.bytes
+end
+
+function Mesh:serialize_origin()
+    local buffer = bit_buffer:new()
+
+    buffer:put_float32(self.origin[1])
+    buffer:put_float32(self.origin[2])
+    buffer:put_float32(self.origin[3])
+
+    return buffer.bytes
+end
+
+function Mesh:serialize_blocks_pos()
+    local buffer = bit_buffer:new()
+    buffer:put_uint32(#self.blocks)
+    for _, block in ipairs(self.blocks) do
+        local pos = block.pos
+        buffer:put_float32(pos[1])
+        buffer:put_float32(pos[2])
+        buffer:put_float32(pos[3])
+    end
+
+    return compression.encode(buffer.bytes)
+end
+
+function Mesh:frombytes_rotation(bytes)
+    local buffer = bit_buffer:new(bytes)
+    self:set_rot({
+        buffer:get_float32(),
+        buffer:get_float32(),
+        buffer:get_float32()
+    })
+end
+
+function Mesh:frombytes_origin(bytes)
+    local buffer = bit_buffer:new(bytes)
+    local pos = {
+        buffer:get_float32(),
+        buffer:get_float32(),
+        buffer:get_float32()
+    }
+
+    self:set_pos(pos)
+end
+
+function Mesh:frombytes_blocks_pos(bytes)
+    local buffer = bit_buffer:new(compression.decode(bytes))
+    local len = buffer:get_uint32()
+
+    local blocks = self.blocks
+
+    for i=1, len do
+        blocks[i].pos = {
+            buffer:get_float32(),
+            buffer:get_float32(),
+            buffer:get_float32(),
+        }
+    end
+end
+
+function Mesh:animation_play(animation)
+    animation_player.play(animation_storage.get_animation(animation), self)
 end
 
 function Mesh:change_origin(pos)

@@ -55,3 +55,17 @@ ROTATIONS.none = {
         rotation = mat4.rotate({1, 0, 0}, 90),
     },
 }
+
+local temp_protocol = {
+    "spawn",
+    "unreg",
+    "change_origin",
+    "set_rot",
+    "set_pos",
+    "animation_play"
+}
+
+PROTOCOL = {}
+for id, key in ipairs(temp_protocol) do
+    PROTOCOL[key] = tohex(id-1)
+end

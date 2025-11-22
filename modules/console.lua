@@ -1,6 +1,4 @@
 local mp = require "not_utils:main".multiplayer.api.server
-local animation_player = require "animations/animation_player"
-local animation_storage = require "animations/animation_storage"
 local api = require "api/server"
 local synced = nil
 
@@ -10,12 +8,13 @@ mp.console.set_command(
     function (region, client)
 
         synced = api.to_mesh({region.x1,region.y1, region.z1}, {region.x2, region.y2, region.z2})
-        synced:set_pos(table.map({player.get_pos(0)}, function (i, val)
-            return val+10
+        synced:set_pos(table.map({player.get_pos(client.player.pid)}, function (i, val)
+            return val+1
         end))
-        animation_storage.load_animation(file.read(PACK_ID .. ":animations/root.json"))
 
-        animation_player.play(animation_storage.get_animation("root"), synced)
+        synced:animation_play("root")
+
+        local bytes = synced:serialize()
     end
 )
 

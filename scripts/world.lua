@@ -14,9 +14,7 @@ else
     require "init/client"
 end
 
-function on_world_open()
-    require "console"
-end
+require "init/general"
 
 function on_world_tick()
     animation_player.tick()

@@ -28,10 +28,6 @@ end
 
 local players_near = {}
 
-function on_save()
-    entity:despawn()
-end
-
 function on_sensor_enter(index, oid)
     local other_entity = entities.get(oid)
     local pid = other_entity:get_player()

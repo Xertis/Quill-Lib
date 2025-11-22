@@ -1,30 +1,6 @@
 local module = {}
 local to_play = {}
 
-local function mat4_mul(matrices)
-    local result = mat4.idt()
-
-    for _, matrix in ipairs(matrices) do
-        result = mat4.mul(result, matrix)
-    end
-
-    return result
-end
-
-local function vec_to_mat4(vector)
-    local matrices = {}
-    for pos, axis in ipairs(vector) do
-        local vec = {0, 0, 0}
-
-        if axis ~= 0 then
-            vec[pos] = 1
-            table.insert(matrices, mat4.rotate(vec, axis))
-        end
-    end
-
-    return mat4_mul(matrices)
-end
-
 local function get_end(steps)
     local end_time = 0
     local end_val = nil
@@ -32,6 +8,7 @@ local function get_end(steps)
     if not steps then return end
 
     for time, val in pairs(steps) do
+        time = tonumber(time)
         if end_time < time then
             end_time = time
             end_val = val
@@ -137,8 +114,8 @@ function module.tick()
             cur_pos = {0, 0, 0}
         end
 
-        mesh:set_pos(vec3.sub(origin, cur_pos))
-        mesh:set_rot(cur_rot)
+        mesh:set_pos(vec3.sub(origin, cur_pos), true)
+        mesh:set_rot(cur_rot, true)
         ::continue::
     end
 end

@@ -1,4 +1,5 @@
 local Mesh = require "classes/Mesh"
+local mesh_controller = require "multiplayer/mesh_controller"
 local module = {}
 
 function module.to_mesh(pos1, pos2, destroy)
@@ -20,7 +21,7 @@ function module.to_mesh(pos1, pos2, destroy)
         end
     end
 
-    return mesh
+    return mesh_controller.wrap(mesh)
 end
 
 function module.to_struct(origin, mesh)
