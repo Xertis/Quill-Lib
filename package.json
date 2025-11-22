@@ -1,9 +1,9 @@
 {
 	"id": "meshup",
 	"title": "MeshUp",
-	"version": "1.0",
+	"version": "0.0.1",
 	"author": "Xertis",
-	"description": "Позволяет объединять блоки в единые сущности",
+	"description": "[ALPHA] Позволяет объединять блоки в единые сущности",
 	"dependencies": [
 		"!not_utils"
 	]
