@@ -1,3 +1,3 @@
-local animation_storage = require "animations/animation_storage"
+local api = require "meshup:api/api".general
 
-animation_storage.load_animation(file.read(PACK_ID .. ":animations/root.json"))
+api.animations.storage.load_animation(file.read(PACK_ID .. ":animations/root.json"))

@@ -67,5 +67,5 @@ local temp_protocol = {
 
 PROTOCOL = {}
 for id, key in ipairs(temp_protocol) do
-    PROTOCOL[key] = tohex(id-1)
+    PROTOCOL[key] = string.format("%x", id-1)
 end

@@ -1,5 +1,5 @@
 local mp = require "not_utils:main".multiplayer.api.server
-local api = require "api/server"
+local api = require "meshup:api/api".server
 local synced = nil
 
 mp.console.set_command(
@@ -7,7 +7,7 @@ mp.console.set_command(
     {server={"meshup_spawn"}},
     function (region, client)
 
-        synced = api.to_mesh({region.x1,region.y1, region.z1}, {region.x2, region.y2, region.z2})
+        synced = api.mesh.to_mesh({region.x1,region.y1, region.z1}, {region.x2, region.y2, region.z2})
         synced:set_pos(table.map({player.get_pos(client.player.pid)}, function (i, val)
             return val+1
         end))

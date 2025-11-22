@@ -58,8 +58,12 @@ function module.wrap(mesh)
     mesh.change_origin = function (self, pos)
         change_origin(self, pos)
         if self.is_registered then
-            local bytes = mesh:serialize_blocks_pos()
-            mp.events.echo(PACK_ID, PROTOCOL.change_origin, concat(id, bytes))
+            local buf = bit_buffer:new()
+            buf:put_float32(pos[1])
+            buf:put_float32(pos[2])
+            buf:put_float32(pos[3])
+
+            mp.events.echo(PACK_ID, PROTOCOL.change_origin, concat(id, buf.bytes))
         end
     end
 
