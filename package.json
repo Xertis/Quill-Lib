@@ -5,6 +5,6 @@
 	"author": "Xertis",
 	"description": "[ALPHA] Позволяет объединять блоки в единые сущности",
 	"dependencies": [
-		"!not_utils"
+		"!not_utils@>=0.1.1"
 	]
 }
