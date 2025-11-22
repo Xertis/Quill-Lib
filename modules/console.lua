@@ -13,8 +13,6 @@ mp.console.set_command(
         end))
 
         synced:animation_play("root")
-
-        local bytes = synced:serialize()
     end
 )
 
