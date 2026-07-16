@@ -5,7 +5,7 @@ BLOCK_REMOVED = 1
 BLOCK_UPDATED = 2
 PHYS_BLOCK_ID = entities.def_index("meshup:phys_block")
 
-MESHES_SAVING_FILE = pack.data_file(PACK_ID, "meshes.bjson")
+MESHES_SAVING_FILE = pack.data_file(PACK_ID, "data.bjson")
 
 
 ROTATION_MATRICES = {}

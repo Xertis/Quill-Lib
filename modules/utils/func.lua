@@ -102,7 +102,25 @@ function UTILS.table_checksum(data)
 end
 
 function UTILS.vec3_chunk(vec)
-    local x = math.floor(vec[1] / 16)
-    local z = math.floor(vec[3] / 16)
+    local x = math.floor(vec[1] / CHUNK_SIZE)
+    local z = math.floor(vec[3] / CHUNK_SIZE)
     return x, z
+end
+
+function UTILS.get_occupied_cells(id, rotation_index)
+    local min_pos, size = unpack(block.get_hitbox(id, rotation_index))
+    local x0, y0, z0 = math.floor(min_pos[1]), math.floor(min_pos[2]), math.floor(min_pos[3])
+    local x1 = math.ceil(min_pos[1] + size[1]) - 1
+    local y1 = math.ceil(min_pos[2] + size[2]) - 1
+    local z1 = math.ceil(min_pos[3] + size[3]) - 1
+
+    local cells = {}
+    for x = x0, x1 do
+        for y = y0, y1 do
+            for z = z0, z1 do
+                cells[#cells + 1] = { x, y, z }
+            end
+        end
+    end
+    return cells
 end

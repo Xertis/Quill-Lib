@@ -19,9 +19,15 @@ block_api.register(block.index("base:wooden_door"), {
             space.set_user_bits(pos, 0, 1, 1)
         end
         space.set_rotation(pos, (space.get_rotation(pos) + inc) % 4)
+
+        print(space.get_rotation(pos), space.get_rotation(), "победа мб")
     end
 })
 
 function on_world_save()
     Mesh.save()
+end
+
+function on_world_open()
+    Mesh.load()
 end

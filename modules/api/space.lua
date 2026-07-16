@@ -2,8 +2,8 @@ local cache = {}
 
 local function get_block(mesh, world_pos)
     local unrotated_pos = mesh:get_unrotated_local_pos(world_pos)
-
-    local block = mesh.blocks[UTILS.pos_to_num(unrotated_pos)]
+    local unit_id = UTILS.pos_to_num(unrotated_pos)
+    local block = mesh:get_block_entry(unit_id)
     if not block then
         debug.print(world_pos)
         error("нет такого блока")
@@ -21,29 +21,35 @@ local function get_mesh(mesh, unit_id)
         kind = "mesh",
 
         get = function(pos)
-            local block = pos and space_block or get_block(mesh, pos)
+            local block = (not pos) and space_block or get_block(mesh, pos)
             return block and block.id or -1
         end,
 
         set = function(pos, id, states)
-            local _, local_pos = pos and space_block or get_block(mesh, pos)
+            local local_pos = nil
+            if not pos then
+                local_pos = ({get_block(mesh, pos)})[2]
+            else
+                local_pos = space_block.local_pos
+            end
+
             mesh:put_block(local_pos, id, states)
         end,
 
         get_states = function(pos)
-            local block = pos and space_block or get_block(mesh, pos)
+            local block = (not pos) and space_block or get_block(mesh, pos)
             return block and block.logic.get_states() or 0
         end,
 
         set_states = function(pos, states)
-            local block = pos and space_block or get_block(mesh, pos)
+            local block = (not pos) and space_block or get_block(mesh, pos)
             if block then
                 block.logic.set_states(states)
             end
         end,
 
         get_rotation = function(pos)
-            local block = pos and space_block or get_block(mesh, pos)
+            local block = (not pos) and space_block or get_block(mesh, pos)
             if not block then return 0 end
 
             local state = block.logic.get_states()
@@ -51,17 +57,24 @@ local function get_mesh(mesh, unit_id)
         end,
 
         set_rotation = function(pos, rotation)
-            local block = pos and space_block or get_block(mesh, pos)
-            if not block then return end
+            local _block = (not pos) and space_block or get_block(mesh, pos)
+            if not _block then return end
 
-            local state = block.logic.get_states()
-            local s = block.decompose_state(state)
-            s.rotation = rotation
-            block.logic.set_states(block.compose_state(s))
+            local state = _block.logic.get_states()
+
+            local _, segment, userbits = unpack(block.decompose_state(state))
+
+            local new_state = block.compose_state({
+                rotation,
+                segment,
+                userbits
+            })
+
+            _block.logic.set_states(new_state)
         end,
 
         get_user_bits = function(pos, offset, bits)
-            local block = pos and space_block or get_block(mesh, pos)
+            local block = (not pos) and space_block or get_block(mesh, pos)
             if not block then return 0 end
 
             local state = block.logic.get_states()
@@ -69,7 +82,7 @@ local function get_mesh(mesh, unit_id)
         end,
 
         set_user_bits = function(pos, offset, bits, value)
-            local block = pos and space_block or get_block(mesh, pos)
+            local block = (not pos) and space_block or get_block(mesh, pos)
             if not block then return end
 
             local state = block.logic.get_states()
@@ -82,7 +95,7 @@ local function get_mesh(mesh, unit_id)
         end,
     }
 
-    cache[mesh.id] = space
+    cache[string.format("%s|%s", mesh.id, unit_id)] = space
 
     return space
 end
