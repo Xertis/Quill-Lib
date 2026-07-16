@@ -1,49 +1,18 @@
-local _mp = require "not_utils:main".multiplayer
-local mesh_controller = require "multiplayer/mesh_controller"
-local Mesh = require "classes/Mesh"
+NEUTRON.entities.desync("meshup:phys_block")
 
-local mp = _mp.api.client
-local mode = _mp.mode
-local bit_buffer = require "not_utils:main".BitBuffer
+local model_builder = require "utils/model_builder"
+for id = 0, block.defs_count() - 1 do
+    local pack, block_name = parse_path(block.name(id))
+    local path = string.format("%s:blocks/%s.json", pack, block_name)
+    if pack == "core" then goto continue end
 
-local meshes = {}
+    local data = json.parse(file.read(path))
+    local vcm = model_builder.build(data)
 
-mp.entities.desync(PACK_ID .. ":phys_block")
+    local model_name = block.model_name(id):match(":(.-)%.")
+    assets.parse_model("vcm", vcm, string.format("meshup__%s__%s", pack, model_name))
 
-if mode ~= "standalone" then
-    mp.events.on(PACK_ID, PROTOCOL.spawn, function (data)
-        local id, bytes = mesh_controller.parse(data)
-        meshes[id] = Mesh.frombytes(bytes)
-    end)
-
-    mp.events.on(PACK_ID, PROTOCOL.unreg, function (data)
-        local id, bytes = mesh_controller.parse(data)
-        -- TODO: Реализовать удаление мэшей
-    end)
-
-    mp.events.on(PACK_ID, PROTOCOL.set_rot, function (data)
-        local id, bytes = mesh_controller.parse(data)
-        meshes[id]:frombytes_rotation(bytes)
-    end)
-
-    mp.events.on(PACK_ID, PROTOCOL.set_pos, function (data)
-        local id, bytes = mesh_controller.parse(data)
-        meshes[id]:frombytes_origin(bytes)
-    end)
-
-    mp.events.on(PACK_ID, PROTOCOL.change_origin, function (data)
-        local id, bytes = mesh_controller.parse(data)
-
-        local buf = bit_buffer:new(bytes)
-        meshes[id]:change_origin({
-            buf:get_float32(),
-            buf:get_float32(),
-            buf:get_float32()
-        })
-    end)
-
-    mp.events.on(PACK_ID, PROTOCOL.animation_play, function (bytes)
-        local data = mp.bson.deserialize(bytes)
-        meshes[tohex(data.id)]:animation_play(data.animation)
-    end)
+    ::continue::
 end
+
+require "net/client/mesh_listener"

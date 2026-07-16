@@ -1,21 +1,27 @@
-require "constants"
-require "std/min"
+if vc.is_client() then return end
 
-local animation_player = require "animations/animation_player"
-local mp = require "not_utils:main".multiplayer
-local mode = mp.mode
+local observer = require "net/server/observer"
+local Mesh = require "classes/mesh"
 
-if mode == "server" then
-    require "init/server"
-elseif mode == "client" then
-    require "init/client"
-else
-    require "init/server"
-    require "init/client"
-end
+events.on("server:client_pipe_start", function (client)
+    observer.process(client.player)
+end)
 
-require "init/general"
+local block_api = require "api/block"
 
-function on_world_tick()
-    animation_player.tick()
+block_api.register(block.index("base:wooden_door"), {
+    on_interact = function(space, pos, player)
+        local inc = 1
+        if space.get_user_bits(pos, 0, 1) > 0 then
+            inc = 3
+            space.set_user_bits(pos, 0, 1, 0)
+        else
+            space.set_user_bits(pos, 0, 1, 1)
+        end
+        space.set_rotation(pos, (space.get_rotation(pos) + inc) % 4)
+    end
+})
+
+function on_world_save()
+    Mesh.save()
 end

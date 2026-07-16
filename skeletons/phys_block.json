@@ -1,6 +1,0 @@
-{
-    "root": {
-        "model": "phys_block",
-        "body-type": "static"
-    }
-}

@@ -1,185 +1,221 @@
-local mp = require "not_utils:main".multiplayer.api
-
-local animation_player = require "animations/animation_player"
-local animation_storage = require "animations/animation_storage"
-
-local bit_buffer = require "not_utils:main".BitBuffer
-
-local api = mp.server or mp.client
-local bson = api.bson
-
 local Mesh = {}
 Mesh.__index = Mesh
 
-local function __count_neighbors(x1, y1, z1, blocks)
-    local count = 0
+local sandbox = NEUTRON.sandbox
+local __chunk_size = CHUNK_SIZE
 
-    local neighbor_offsets = {
-        {x=1, y=0, z=0},
-        {x=-1, y=0, z=0},
-        {x=0, y=1, z=0},
-        {x=0, y=-1, z=0},
-        {x=0, y=0, z=1},
-        {x=0, y=0, z=-1}
-    }
+local MESHES = {}
 
-    for _, offset in ipairs(neighbor_offsets) do
-        local neighbor_pos = {
-            x = x1 + offset.x,
-            y = y1 + offset.y,
-            z = z1 + offset.z
-        }
-
-        for _, block_data in ipairs(blocks) do
-            local pos = block_data.pos
-            if pos[1] == neighbor_pos.x and pos[2] == neighbor_pos.y and pos[3] == neighbor_pos.z then
-                count = count + 1
-                break
-            end
-        end
-    end
-
-    return count
-end
-
-function Mesh.new(blocks, origin, size, interpolated)
+function Mesh.new(id, blocks, origin)
     local self = setmetatable({}, Mesh)
+    self.id = id
     self.blocks = {}
-    self.invisible_blocks = {}
-    self.struct_blocks = {}
     self.origin = origin
-    self.size = size
-    self.rotation = {}
-    self.is_interpolated = interpolated or false
-    self.entities = {}
+    self.rotation = { 0, 0, 0 }
+    self.active = true
 
     for _, block in ipairs(blocks or {}) do
-        self:put_block(block.pos, block.id)
+        self:put_block(block.pos)
     end
+
+    MESHES[id] = self
 
     return self
 end
 
-function Mesh.frombytes(bytes)
-    local data = bson.deserialize(
-        compression.decode(bytes)
-    )
+--[[
+self.blocks[unit_id] = {
+    id = id,
+    pos = pos,
+    entity = entity,
+    base_rot = entity.transform:get_rot(),
+    local_pos = local_pos,
+    logic = entity:require_component("meshup:block_logic")
+}
+]]
 
-    local mesh = Mesh.new(data.blocks, data.origin, data.size, true)
-    mesh:set_rot(data.rotation)
-    return mesh
-end
-
-function Mesh:__get_blocks_data()
-    local data = {}
-    for _, block in ipairs(self.blocks) do
-        table.insert(data, {id = block.id, pos = block.pos})
-    end
-    return data
-end
-
-function Mesh:serialize()
-    local blocks = self:__get_blocks_data()
-    local rotation = self.rotation
-    local data = {
-        blocks = blocks,
-        rotation = rotation,
+function Mesh:to_serialize()
+    local mesh_tbl = {
+        id = self.id,
         origin = self.origin,
-        size = self.size
+        rotation = self.rotation,
+        blocks = {}
     }
 
-    local non_compressed_data = bson.serialize(data)
-    local compressed = compression.encode(non_compressed_data)
-
-    return compressed
-end
-
-function Mesh:serialize_rotation()
-    local buffer = bit_buffer:new()
-
-    buffer:put_float32(self.rotation[1])
-    buffer:put_float32(self.rotation[2])
-    buffer:put_float32(self.rotation[3])
-
-    return buffer.bytes
-end
-
-function Mesh:serialize_origin()
-    local buffer = bit_buffer:new()
-
-    buffer:put_float32(self.origin[1])
-    buffer:put_float32(self.origin[2])
-    buffer:put_float32(self.origin[3])
-
-    return buffer.bytes
-end
-
-function Mesh:serialize_blocks_pos()
-    local buffer = bit_buffer:new()
-    buffer:put_uint32(#self.blocks)
-    for _, block in ipairs(self.blocks) do
-        local pos = block.pos
-        buffer:put_float32(pos[1])
-        buffer:put_float32(pos[2])
-        buffer:put_float32(pos[3])
+    for _, block in pairs(self.blocks) do
+        mesh_tbl.blocks[#mesh_tbl.blocks + 1] = {
+            id = block.id,
+            uid = block.entity:get_uid(),
+            base_rot = block.base_rot,
+            local_pos = block.local_pos,
+        }
     end
 
-    return compression.encode(buffer.bytes)
+    return mesh_tbl
 end
 
-function Mesh:frombytes_rotation(bytes)
-    local buffer = bit_buffer:new(bytes)
-    self:set_rot({
-        buffer:get_float32(),
-        buffer:get_float32(),
-        buffer:get_float32()
-    })
-end
+function Mesh:from_table(tbl)
+    self.id = tbl.id
+    self.origin = tbl.origin
+    self.rotation = tbl.rotation
+    self.blocks = {}
 
-function Mesh:frombytes_origin(bytes)
-    local buffer = bit_buffer:new(bytes)
-    local pos = {
-        buffer:get_float32(),
-        buffer:get_float32(),
-        buffer:get_float32()
-    }
-
-    self:set_pos(pos)
-end
-
-function Mesh:frombytes_blocks_pos(bytes)
-    local buffer = bit_buffer:new(compression.decode(bytes))
-    local len = buffer:get_uint32()
-
-    local blocks = self.blocks
-
-    for i=1, len do
-        blocks[i].pos = {
-            buffer:get_float32(),
-            buffer:get_float32(),
-            buffer:get_float32(),
+    for _, block in ipairs(tbl.blocks) do
+        local unit_id = UTILS.pos_to_num(block.local_pos)
+        local entity = entities.get(block.uid)
+        self.blocks[unit_id] = {
+            id = block.id,
+            entity = entity,
+            base_rot = block.base_rot,
+            local_pos = block.local_pos,
+            logic = entity:require_component("meshup:block_logic")
         }
     end
 end
 
-function Mesh:animation_play(animation)
-    animation_player.play(animation_storage.get_animation(animation), self)
+function Mesh.save()
+    local save_tbl = {}
+    for id, mesh in pairs(MESHES) do
+        local str_id = tostring(id)
+
+        save_tbl[str_id] = mesh:to_serialize()
+    end
+
+    local bytes = bjson.tobytes(save_tbl, true)
+    file.write_bytes(MESHES_SAVING_FILE, bytes)
+end
+
+function Mesh.get_in_view(player)
+    local in_view = {}
+    for id, mesh in pairs(MESHES) do
+        local chunk_x = math.floor(mesh.origin[1] / __chunk_size)
+        local chunk_z = math.floor(mesh.origin[3] / __chunk_size)
+        if sandbox.players.chunk_is_loaded(player, chunk_x, chunk_z) then
+            in_view[id] = mesh
+        end
+    end
+    return in_view
+end
+
+function Mesh.get(id)
+    return MESHES[id]
+end
+
+function Mesh.remove(id)
+    MESHES[id].active = false
+    MESHES[id] = nil
+end
+
+function Mesh:in_view(player)
+    local chunk_x = math.floor(self.origin[1] / __chunk_size)
+    local chunk_z = math.floor(self.origin[3] / __chunk_size)
+    return sandbox.players.chunk_is_loaded(player, chunk_x, chunk_z)
+end
+
+function Mesh:__get_blocks_data()
+    local data = {}
+    for _, block in pairs(self.blocks) do
+        data[#data + 1] = { id = block.id, pos = block.pos }
+    end
+    return data
 end
 
 function Mesh:change_origin(pos)
     self.origin = pos
 
-    for _, block in ipairs(self.blocks) do
+    for _, block in pairs(self.blocks) do
         block.pos = vec3.sub(block.pos, pos)
     end
 end
 
-function Mesh:put_entity(uid)
-    self.entities[uid] = entities.get(uid)
+function Mesh:get_unrotated_local_pos(block_world_pos)
+    local current_rel_pos = vec3.sub(block_world_pos, self.origin)
+
+    local rot_vec = self.rotation
+    local rot_matrix = UTILS.vec_to_mat(rot_vec)
+    local inv_rot_matrix = mat4.inverse(rot_matrix)
+
+    local base_rel_pos = mat4.mul(inv_rot_matrix, current_rel_pos)
+
+    return {
+        math.floor(base_rel_pos[1]),
+        math.floor(base_rel_pos[2]),
+        math.floor(base_rel_pos[3])
+    }
 end
 
-function Mesh:remove_entity(uid)
-    self.entities[uid] = nil
+function Mesh:get_world_pos_and_rot(local_pos, base_rot)
+    local rotation_matrix = UTILS.vec_to_mat(self.rotation)
+
+    local rotated_pos = mat4.mul(rotation_matrix, local_pos)
+    local world_pos = vec3.add(self.origin, rotated_pos)
+
+    base_rot = base_rot or mat4.idt()
+
+    local translate_to_origin = mat4.translate(vec3.mul(self.origin, -1))
+    local translate_back = mat4.translate(self.origin)
+    local global_rot_matrix = mat4.mul(translate_back, mat4.mul(rotation_matrix, translate_to_origin))
+
+    local world_rot = mat4.mul(global_rot_matrix, base_rot)
+
+    return world_pos, world_rot
+end
+
+function Mesh:update_block(unit_id, states)
+    self.blocks[unit_id].logic.set_states(states)
+end
+
+function Mesh:remove_block(unit_id)
+    if self.blocks[unit_id] then
+        self.blocks[unit_id].entity:despawn()
+        self.blocks[unit_id] = nil
+    end
+end
+
+function Mesh:put_block(local_pos, id, states)
+    states = states or 0
+    if self.rotation[1] ~= 0 or self.rotation[2] ~= 0 or self.rotation[3] ~= 0 then
+        error("Вращение должно быть нулевое")
+    end
+
+    if id == -1 or id == 0 then
+        print(id, "такой айди нельзя вставить")
+        return
+    end
+
+    local pos = self:get_world_pos_and_rot(local_pos)
+    local unit_id = UTILS.pos_to_num(local_pos)
+
+    local entity = entities.spawn("meshup:phys_block", pos,
+        {
+            meshup__block_logic = {
+                id = id,
+                unit_id = unit_id,
+                mesh_id = self.id,
+                local_pos = local_pos,
+            },
+            meshup__block_visuals = {
+                id = id,
+            },
+        }
+    )
+
+    if self.blocks[unit_id] then
+        self.blocks[unit_id].entity:despawn()
+    end
+
+    self.blocks[unit_id] = {
+        id = id,
+        pos = pos,
+        entity = entity,
+        base_rot = entity.transform:get_rot(),
+        local_pos = local_pos,
+        logic = entity:require_component("meshup:block_logic")
+    }
+
+    self:update_block(unit_id, states)
+
+    return entity
 end
 
 function Mesh:__get_relative_pos(entity, pos)
@@ -187,57 +223,17 @@ function Mesh:__get_relative_pos(entity, pos)
     return vec3.sub(pos, entity.transform:get_pos())
 end
 
-function Mesh:set_config(config)
-    self.is_obstacle = config.is_obstacle
-    self.is_interpolated = config.is_interpolated
-end
-
-function Mesh:put_block(pos, id, rot)
-    if id == -1 then
-        return
-    end
-
-    table.insert(self.struct_blocks, {id = id})
-
-    if id == 0 then
-        return
-    end
-
-    local origin = self.origin
-    local new_pos = vec3.sub(pos, origin)
-
-    local entity = entities.spawn("meshup:phys_block", vec3.add(pos, 0.5),
-            {meshup__phys_block={block=block.name(id)}})
-
-    if rot then
-        if ROTATIONS[rot.profile][rot.rot] then
-            entity.transform:set_rot(ROTATIONS[rot.profile][rot.rot].rotation)
-        end
-    end
-
-    entity.rigidbody:set_gravity_scale({0, 0, 0})
-    table.insert(self.blocks, {
-        id = id,
-        pos = new_pos,
-        entity = entity,
-        base_rot = entity.transform:get_rot(),
-        obstacle = {}
-    })
-end
-
 function Mesh:set_pos(pos)
-    local old_origin = self.origin
     self.origin = pos
-    for _, block in ipairs(self.blocks) do
+
+    local rotation_matrix = UTILS.vec_to_mat(self.rotation)
+
+    for _, block in pairs(self.blocks) do
+        local rotated_pos = mat4.mul(rotation_matrix, block.local_pos)
         local tsf = block.entity.transform
-
-        tsf:set_pos(vec3.add(self.origin, block.pos))
-    end
-
-    for _, entity in ipairs(self.entities) do
-        local tsf = entity.transform
-
-        tsf:set_pos(vec3.add(self.origin, self:__get_relative_pos(entity, old_origin)))
+        local new_pos = vec3.add(self.origin, rotated_pos)
+        block.pos = new_pos
+        tsf:set_pos(new_pos)
     end
 end
 
@@ -246,47 +242,33 @@ function Mesh:move(move)
     self:set_pos(pos)
 end
 
+function Mesh:get_states()
+    local blocks = self.blocks
+    local states = {}
+
+    for unit_id, block in pairs(blocks) do
+        states[unit_id] = block.logic.get_states()
+    end
+
+    return states
+end
+
 function Mesh:set_rot(rotation_vector)
     self.rotation = rotation_vector
-    local rotation_matrix = mat4.vec_to_mat(rotation_vector)
+    local rotation_matrix = UTILS.vec_to_mat(rotation_vector)
 
-    local translate_to_origin = mat4.translate(vec3.mul(self.origin, -1))
-    local translate_back = mat4.translate(self.origin)
-    local global_rot_matrix = mat4.mul(translate_back, mat4.mul(rotation_matrix, translate_to_origin))
+    for _, block in pairs(self.blocks) do
+        local rotated_pos = mat4.mul(rotation_matrix, block.local_pos)
+        local world_pos = vec3.add(self.origin, rotated_pos)
+        local world_rot = mat4.mul(rotation_matrix, block.base_rot)
 
-    for _, block in ipairs(self.blocks) do
-        local rotated_pos = mat4.mul(rotation_matrix, block.pos)
+        block.pos = world_pos
 
-        local entity = block.entity
-        local tsf = entity.transform
-        local current_rot = block.base_rot
-        local new_rot = mat4.mul(global_rot_matrix, current_rot)
-        tsf:set_pos(vec3.add(self.origin, rotated_pos))
-        tsf:set_rot(new_rot)
-    end
-
-    for _, entity in ipairs(self.entities) do
-        local tsf = entity.transform
-        local rotated_pos = mat4.mul(rotation_matrix, tsf:get_pos())
-
-        local new_rot = mat4.mul(global_rot_matrix, tsf:get_rot())
-        tsf:set_pos(vec3.add(self.origin, rotated_pos))
-        tsf:set_rot(new_rot)
+        local tsf = block.entity.transform
+        tsf:set_pos(world_pos)
+        tsf:set_rot(world_rot)
     end
 end
 
-function Mesh:remove_invisibles()
-    local blocks_copy = table.copy(self.blocks)
-    for id=#self.blocks, 1, -1 do
-        local block_entity = self.blocks[id]
-        local count = __count_neighbors(block_entity.pos[1], block_entity.pos[2], block_entity.pos[3], blocks_copy)
-
-        if count > 5 then
-            table.remove(self.blocks, id)
-
-            block_entity.entity:despawn()
-        end
-    end
-end
 
 return Mesh

@@ -2,7 +2,9 @@
   "blocks": [
     "wood"
   ],
-  "items": [],
+  "items": [
+    "phys_stick"
+  ],
   "entities": [
     "phys_block"
   ]

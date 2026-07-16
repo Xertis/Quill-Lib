@@ -1,10 +1,9 @@
 {
-    "components": [
-        "meshup:phys_block"
-    ],
-    "skeleton-name": "meshup:phys_block",
-    "hitbox": [0.98, 0.98, 0.98],
-    "sensors": [
-        ["aabb", -0.51, -0.51, -0.51, 0.51, 0.51, 0.51]
-    ]
+  "components": ["meshup:block_logic", "meshup:block_visuals"],
+  "skeleton-name": "meshup:block",
+  "hitbox": [0.99999, 0.99999, 0.99999],
+  "blocking": true,
+  "solid": true,
+  "body-type": "dynamic",
+  "mass": 100000
 }
