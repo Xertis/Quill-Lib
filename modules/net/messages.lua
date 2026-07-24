@@ -47,8 +47,8 @@ messages.MeshUpdateBlock = Message.new(PACK_ID, "mesh_ub", {
 messages.MeshUpdate = Message.new(PACK_ID, "mesh_um", {
     mesh_id = "var",
 
-    -- unit_id: uint32, action: uint8, states: NullAble<Pair<uint16, NullAble<uint16>>> Первое это стейт, второе - айди
-    dirty = "Array<Triple<uint32, uint8, NullAble<Pair<uint16, NullAble<uint16>>>>>"
+    -- unit_id: uint32, action: uint8, states: Nilable<Pair<uint16, Nilable<uint16>>> Первое это стейт, второе - айди
+    dirty = "Array<Triple<uint32, uint8, Nilable<Pair<uint16, Nilable<uint16>>>>>"
 })
 
 messages.MeshUse = Message.new(PACK_ID, "mesh_use", {})
