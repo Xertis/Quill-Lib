@@ -1,16 +1,14 @@
 local Mesh = require "classes/mesh"
 local messages = require "net/messages"
 
-local MESHES = {}
-
 messages.MeshSpawn:on(function(data)
-    MESHES[data.mesh_id] = Mesh.new(data.mesh_id, {}, data.origin)
+    Mesh.new(data.mesh_id, {}, data.origin)
 end)
 
 messages.MeshPutBlock:on(function(data)
     local mesh_id = data.mesh_id
     local block = data.block
-    local mesh = MESHES[mesh_id]
+    local mesh = Mesh.get(mesh_id)
 
     local local_pos = {
         block.local_pos.x,
@@ -26,10 +24,9 @@ end)
 
 messages.MeshUpdate:on(function(data)
     local mesh_id = data.mesh_id
-    local mesh = MESHES[mesh_id]
+    local mesh = Mesh.get(mesh_id)
     if not mesh then
         mesh = Mesh.new(mesh_id, {}, { 0, 0, 0 })
-        MESHES[mesh_id] = mesh
     end
 
     for _, info in ipairs(data.dirty) do
@@ -55,7 +52,14 @@ end)
 
 messages.MeshMoved:on(function (data)
     local mesh_id = data.mesh_id
-    local mesh = MESHES[mesh_id]
+    local mesh = Mesh.get(mesh_id)
 
     mesh:set_pos(data.pos)
+end)
+
+messages.MeshRotated:on(function (data)
+    local mesh_id = data.mesh_id
+    local mesh = Mesh.get(mesh_id)
+
+    mesh:set_rot(data.rot)
 end)

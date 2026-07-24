@@ -120,7 +120,7 @@ function module.update(player)
             old_mesh_rotation[3] ~= current_mesh_rotation[3] then
             messages.MeshRotated:tell(client, {
                 mesh_id = id,
-                rot = current_mesh_origin
+                rot = current_mesh_rotation
             })
         end
 

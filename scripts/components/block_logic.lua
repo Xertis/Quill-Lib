@@ -1,4 +1,6 @@
 local Mesh = require "classes/mesh"
+local block_api = require "api/block"
+local space = require "api/space"
 
 local tsf = entity.transform
 local body = entity.rigidbody
@@ -20,7 +22,7 @@ local block_local_pos = ARGS.local_pos
 local unit_id = ARGS.unit_id
 local mesh_id = ARGS.mesh_id
 
-local block_states = nil
+local block_states = ARGS.states
 
 if SAVED_DATA.block then
     block_id = SAVED_DATA.block.id
@@ -50,6 +52,14 @@ do -- setup physics
     body:set_mass(math.huge)
 end
 
+local block_module = nil
+local space_api = nil
+do -- setup api
+    block_module = block_api.require(block_id)
+
+    space_api = space.get_mesh(Mesh.get(mesh_id), unit_id)
+end
+
 function get_states()
     return block_states
 end
@@ -68,6 +78,15 @@ end
 
 function get_unit_id()
     return unit_id
+end
+
+function on_update()
+    if block_module.on_update then
+        block_module.on_update(
+            space_api,
+            tsf:get_pos()
+        )
+    end
 end
 
 function on_physics_update()

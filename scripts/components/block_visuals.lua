@@ -1,6 +1,9 @@
+if not vc.is_client() then return end
+
 local body = entity.rigidbody
 local rig = entity.skeleton
 
+local model_manager = require "utils/model_manager"
 local messages = require "net/messages"
 
 local block_id = ARGS.id
@@ -21,10 +24,12 @@ function on_save()
 end
 
 do -- setup visuals
-    local raw_model_name = block.model_name(block_id)
-    local pack = raw_model_name:match("([^:]*)")
-    local model_name = raw_model_name:match(":(.-)%.")
-    rig:set_model(0, string.format("meshup__%s__%s", pack, model_name))
+    local model_info = model_manager.get_model(block_id)
+    rig:set_model(0, model_info.name)
+
+    if model_info.type == DEFAULT_MODEL_TYPE then
+        rig:set_matrix(0, mat4.translate({-0.5,-0.5,-0.5}))
+    end
 
     body:set_material(block.material(block_id))
 end

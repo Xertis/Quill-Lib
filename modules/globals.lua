@@ -5,7 +5,12 @@ BLOCK_REMOVED = 1
 BLOCK_UPDATED = 2
 PHYS_BLOCK_ID = entities.def_index("meshup:phys_block")
 
-MESHES_SAVING_FILE = pack.data_file(PACK_ID, "data.bjson")
+GENERATED_MODEL_TYPE = 0
+DEFAULT_MODEL_TYPE = 1
+
+if not vc.is_client() then
+    MESHES_SAVING_FILE = pack.data_file(PACK_ID, "data.bjson")
+end
 
 
 ROTATION_MATRICES = {}

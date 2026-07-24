@@ -6,12 +6,9 @@ local space = require "api/space"
 
 local messages = require "net/messages"
 
-local inddd = 0
 messages.PhysStickSpawn:on(function(client, data)
     local pos = { data.x, data.y, data.z }
-    local mesh = Mesh.new(inddd, {}, pos)
-
-    inddd = inddd + 1
+    local mesh = Mesh.new(nil, {}, pos)
 
     local id = block.get(data.x, data.y, data.z)
     local states = block.get_states(data.x, data.y, data.z)

@@ -8,6 +8,22 @@ local MESHES = {}
 
 function Mesh.new(id, blocks, origin)
     local self = setmetatable({}, Mesh)
+
+    if not id then
+        for i = 0, table.count_pairs(MESHES) + 1 do
+            if not MESHES[i] then
+                id = i
+                break
+            end
+        end
+        if not id then
+            for a, b in pairs(MESHES) do
+                print(a, b)
+            end
+            error("айди меша равен nil, хз почему")
+        end
+    end
+
     self.id = id
     self.blocks = {}
     self.origin = origin
@@ -24,6 +40,69 @@ function Mesh.new(id, blocks, origin)
     MESHES[id] = self
 
     return self
+end
+
+function Mesh.save()
+    local save_tbl = {}
+    for _, mesh in pairs(MESHES) do
+        save_tbl[#save_tbl+1] = mesh:to_serialize()
+    end
+
+    local bytes = bjson.tobytes(
+        {meshes = save_tbl},
+    true)
+    file.write_bytes(MESHES_SAVING_FILE, bytes)
+end
+
+function Mesh.load()
+    if not file.exists(MESHES_SAVING_FILE) then
+        return
+    end
+
+    local bytes = file.read_bytes(MESHES_SAVING_FILE)
+    local save_tbl = bjson.frombytes(bytes).meshes
+
+    for _, mesh_info in pairs(save_tbl) do
+        local mesh = Mesh.new(mesh_info.id, {}, mesh_info.origin)
+        mesh.loaded = false
+        mesh.deferred_data = mesh_info
+    end
+end
+
+function Mesh.get_in_view(player)
+    local in_view = {}
+    for id, mesh in pairs(MESHES) do
+        local chunk_x = math.floor(mesh.origin[1] / __chunk_size)
+        local chunk_z = math.floor(mesh.origin[3] / __chunk_size)
+        if sandbox.players.chunk_is_loaded(player, chunk_x, chunk_z) then
+            if not mesh.loaded then mesh:wakeup() end
+            in_view[id] = mesh
+        end
+    end
+    return in_view
+end
+
+function Mesh.get(id)
+    return MESHES[id]
+end
+
+function Mesh.remove(id)
+    local mesh = MESHES[id]
+    mesh.active = false
+    MESHES[id] = nil
+
+    for _, block in pairs(mesh.blocks) do
+        block.entity:despawn()
+    end
+end
+
+function Mesh:get_block_entry(unit_id)
+    local b = self.blocks[unit_id]
+    if not b then return nil end
+    if b.segment_of then
+        return self.blocks[b.segment_of]
+    end
+    return b
 end
 
 function Mesh:to_serialize()
@@ -89,81 +168,38 @@ function Mesh:wakeup()
     self.loaded = true
 end
 
-function Mesh.save()
-    local save_tbl = {}
-    for _, mesh in pairs(MESHES) do
-        save_tbl[#save_tbl+1] = mesh:to_serialize()
-    end
-
-    local bytes = bjson.tobytes(
-        {meshes = save_tbl},
-    true)
-    file.write_bytes(MESHES_SAVING_FILE, bytes)
-end
-
-function Mesh.load()
-    if not file.exists(MESHES_SAVING_FILE) then
-        return
-    end
-
-    local bytes = file.read_bytes(MESHES_SAVING_FILE)
-    local save_tbl = bjson.frombytes(bytes).meshes
-
-    for _, mesh_info in pairs(save_tbl) do
-        local mesh = Mesh.new(mesh_info.id, {}, mesh_info.origin)
-        mesh.loaded = false
-        mesh.deferred_data = mesh_info
-    end
-end
-
-function Mesh.get_in_view(player)
-    local in_view = {}
-    for id, mesh in pairs(MESHES) do
-        local chunk_x = math.floor(mesh.origin[1] / __chunk_size)
-        local chunk_z = math.floor(mesh.origin[3] / __chunk_size)
-        if sandbox.players.chunk_is_loaded(player, chunk_x, chunk_z) then
-            if not mesh.loaded then mesh:wakeup() end
-            in_view[id] = mesh
-        end
-    end
-    return in_view
-end
-
-function Mesh.get(id)
-    return MESHES[id]
-end
-
-function Mesh.remove(id)
-    local mesh = MESHES[id]
-    mesh.active = false
-    MESHES[id] = nil
-
-    for _, block in pairs(mesh.block) do
-        block.entity:despawn()
-    end
-end
-
-function Mesh:get_block_entry(unit_id)
-    local b = self.blocks[unit_id]
-    if not b then return nil end
-    if b.segment_of then
-        return self.blocks[b.segment_of]
-    end
-    return b
-end
-
 function Mesh:in_view(player)
     local chunk_x = math.floor(self.origin[1] / __chunk_size)
     local chunk_z = math.floor(self.origin[3] / __chunk_size)
     return sandbox.players.chunk_is_loaded(player, chunk_x, chunk_z)
 end
 
-function Mesh:__get_blocks_data()
-    local data = {}
-    for _, block in pairs(self.blocks) do
-        data[#data + 1] = { id = block.id, pos = block.pos }
+function Mesh:get_neighbors(pos)
+    local neighbors = {}
+
+    local neighbor_offsets = {
+        { 1,  0,  0},
+        {-1,  0,  0},
+        { 0,  1,  0},
+        { 0, -1,  0},
+        { 0,  0,  1},
+        { 0,  0, -1}
+    }
+
+    for _, offset in ipairs(neighbor_offsets) do
+        local neighbor_pos = {
+            pos[1] + offset[1],
+            pos[2] + offset[2],
+            pos[3] + offset[3]
+        }
+
+        local unit_id = UTILS.pos_to_num(neighbor_pos)
+
+        if self.blocks[unit_id] then
+            neighbors[#neighbors+1] = self.blocks[unit_id]
+        end
     end
-    return data
+    return neighbors
 end
 
 function Mesh:change_origin(pos)
@@ -190,6 +226,13 @@ function Mesh:get_unrotated_local_pos(block_world_pos)
     }
 end
 
+function Mesh:on_update(pos)
+    local neighbors = self:get_neighbors(pos)
+    for _, neighbour in ipairs(neighbors) do
+        neighbour.logic.on_update()
+	end
+end
+
 function Mesh:get_world_pos_and_rot(local_pos, base_rot)
     local rotation_matrix = UTILS.vec_to_mat(self.rotation)
 
@@ -197,12 +240,7 @@ function Mesh:get_world_pos_and_rot(local_pos, base_rot)
     local world_pos = vec3.add(self.origin, rotated_pos)
 
     base_rot = base_rot or mat4.idt()
-
-    local translate_to_origin = mat4.translate(vec3.mul(self.origin, -1))
-    local translate_back = mat4.translate(self.origin)
-    local global_rot_matrix = mat4.mul(translate_back, mat4.mul(rotation_matrix, translate_to_origin))
-
-    local world_rot = mat4.mul(global_rot_matrix, base_rot)
+    local world_rot = mat4.mul(rotation_matrix, base_rot)
 
     return world_pos, world_rot
 end
@@ -223,6 +261,10 @@ function Mesh:remove_block(unit_id)
         self.blocks[UTILS.pos_to_num(cell_pos)] = nil
     end
 
+    if not vc.is_client() then
+        self:on_update(UTILS.num_to_pos(unit_id))
+    end
+
     entry.entity:despawn()
 end
 
@@ -233,7 +275,7 @@ function Mesh:put_block(local_pos, id, states)
     end
 
     if id == -1 or id == 0 then
-        print(id, "такой айди нельзя вставить")
+        print(id, "такой айди нельзя вставить~")
         return
     end
 
@@ -263,6 +305,7 @@ function Mesh:put_block(local_pos, id, states)
                 unit_id = unit_id,
                 mesh_id = self.id,
                 local_pos = local_pos,
+                states = states
             },
             meshup__block_visuals = { id = id },
         }
@@ -291,12 +334,24 @@ function Mesh:put_block(local_pos, id, states)
 
     self:update_block(unit_id, states)
 
+    if not vc.is_client() then
+        self:on_update(local_pos)
+    end
+
     return entity
 end
 
 function Mesh:__get_relative_pos(entity, pos)
     pos = pos or self.origin
     return vec3.sub(pos, entity.transform:get_pos())
+end
+
+function Mesh:__get_blocks_data()
+    local data = {}
+    for _, block in pairs(self.blocks) do
+        data[#data + 1] = { id = block.id, pos = block.pos }
+    end
+    return data
 end
 
 function Mesh:set_pos(pos)
